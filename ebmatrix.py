@@ -12,7 +12,10 @@ class EasyConfig(object):
     def __str__(self):
         parts = [self.pkgname, self.pkgver, self.tc, self.tcver] + ([self.other] if self.other else [])
         return '-'.join(parts)
-
+    def __repr__(self):
+        """ Used by pprint """
+        return self.__str__()
+        
 def eb_search(pkgname):
     """ Return a sequence of EasyConfig objects given a package name (not a regex search as taken by `eb -S`) """
     output = subprocess.run(['eb', '-S', pkgname], capture_output=True, text=True).stdout
@@ -49,45 +52,13 @@ if __name__ == '__main__':
         for ec in ecs:
             toolchain = '%s-%s' % (ec.tc, ec.tcver)
             if toolchain not in results:
-                results[toolchain] = []
-            results[toolchain].append(ec)
-        
-    #pprint.pprint(results)
-    #print('---')
+                results[toolchain] = {}
+            if pkg not in results[toolchain]:
+                results[toolchain][pkg] = []
+            results[toolchain][pkg].append(ec)
     
-    # print matrix
-    for tc in sorted(results.keys()):
-        print(tc, end=' : ')
-        for ec in results[tc]:
-            print(ec, end=' : ')
-        print()
-    exit()
+    # filter results to only toolchains containing all packages
+    fresults = dict((k, v) for (k, v) in results.items() if len(v) == len(packages))
+
+    pprint.pprint(fresults)
     
-    print(all_tcs)
-    exit()
-
-    # find common toolchains
-    if len(data) == 1:
-        pass#exit()
-    tc_sets = [set(d.keys()) for d in data]
-    #print('tc_sets:', tc_sets)
-    common = tc_sets[0]
-    common.intersection_update(*tc_sets[1:])
-    #print('common:',common)
-    if len(common) > 1:
-        print('Found %i common toolchains' % len(common))
-        #print(common)
-        for tc in common:
-            print('%s:' % tc)
-            for pkg in data:
-                for match in pkg[tc]:
-                    if match[-1] == '':
-                        match.pop()
-                    print(' ', '-'.join(match))
-    else:
-        print('No common toolchains found.')
-
-
-
-        
-        
