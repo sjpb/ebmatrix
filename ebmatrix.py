@@ -1,8 +1,20 @@
 import sys, subprocess, pprint
 
+class EasyConfig(object):
+    __slots__ = ('pkgname', 'pkgver', 'tc', 'tcver', 'other')
+    def __init__(self, pkgname, pkgver, tc, tcver, other=''):
+    
+        self.pkgname = pkgname
+        self.pkgver = pkgver
+        self.tc = tc
+        self.tcver = tcver
+        self.other = other
+    def __str__(self):
+        parts = [self.pkgname, self.pkgver, self.tc, self.tcver] + ([self.other] if self.other else [])
+        return '-'.join(parts)
 
 def eb_search(pkgname):
-    """ Return [pkg, pkg_ver, chain, chain_ver, rest] where rest may be '' """
+    """ Return a sequence of EasyConfig objects given a package name (not a regex search as taken by `eb -S`) """
     output = subprocess.run(['eb', '-S', pkgname], capture_output=True, text=True).stdout
     results = []
     for line in output.split('\n'): #  e.g. "* $CFGS1/h/HPL/HPL-2.3-intel-2019a.eb"
@@ -19,7 +31,8 @@ def eb_search(pkgname):
             chain = nameparts.pop(0)
             chain_ver = nameparts.pop(0)
             rest = '.'.join(nameparts) # might be empty, so can't pop
-            results.append([pkg, pkg_ver, chain, chain_ver, rest])
+            ec = EasyConfig(pkg, pkg_ver, chain, chain_ver, rest)
+            results.append(ec)
 
     return results
 
@@ -27,23 +40,31 @@ if __name__ == '__main__':
     packages = sys.argv[1:]
     
     # gather info about all packages
-    data = []
+    results = {} # key-> toolchain-ver, value->[pkg, pkg, ...]
     for pkg in packages:
         
-        results = {}
-        options = eb_search(pkg)
-        if not options:
+        ecs = eb_search(pkg)
+        if not ecs:
             raise ValueError("No matches found for '%s'" % pkg)
-        for option in options:
-            pkg, pkg_ver, chain, chain_ver, rest = option
-            toolchain = '%s-%s' % (chain, chain_ver)
+        for ec in ecs:
+            toolchain = '%s-%s' % (ec.tc, ec.tcver)
             if toolchain not in results:
                 results[toolchain] = []
-            results[toolchain].append(option)
-        data.append(results)
-
-    #pprint.pprint(data)
+            results[toolchain].append(ec)
+        
+    #pprint.pprint(results)
     #print('---')
+    
+    # print matrix
+    for tc in sorted(results.keys()):
+        print(tc, end=' : ')
+        for ec in results[tc]:
+            print(ec, end=' : ')
+        print()
+    exit()
+    
+    print(all_tcs)
+    exit()
 
     # find common toolchains
     if len(data) == 1:
